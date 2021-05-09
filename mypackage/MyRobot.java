@@ -29,7 +29,6 @@ public class MyRobot extends AdvancedRobot {
         while (true) {
             if(meleeMode){
                 // simple wall follow
-                out.println("following walls!");
                 setAhead(getBattleFieldWidth());
                 execute();
             }else{
