@@ -1,6 +1,7 @@
 package cs;
 import robocode.*;
 import robocode.util.Utils;
+import java.awt.geom.Point2D;
 
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 //import java.awt.Color;
@@ -12,14 +13,14 @@ import static robocode.util.Utils.normalRelativeAngleDegrees;
  */
 public class Bro extends AdvancedRobot
 {
+	private byte moveDirection = 1;
+
+
 	/**
 	 * run: Bro2's default behavior
 	 */
 
-	int count = 0; // Keeps track of how long we've
-	// been searching for our target
-	double gunTurnAmt; // How much to turn our gun when searching
-	String trackName; // Name of the robot we're currently tracking
+
 	public void run() {
 		// Initialization of the robot should be put here
 
@@ -33,6 +34,7 @@ public class Bro extends AdvancedRobot
 
 		while(true) {
 			// Replace the next 4 lines with any behavior you would like
+			doMove();
 			if ( getRadarTurnRemaining() == 0.0 ) setTurnRadarRightRadians( Double.POSITIVE_INFINITY );
 			execute();
 		}
@@ -53,6 +55,13 @@ public class Bro extends AdvancedRobot
 		double turn = getHeading() - getGunHeading() + e.getBearing();
 		// normalize the turn to take the shortest path there
 		setTurnGunRight(normalizeBearing(turn));
+
+		// calculate firepower based on distance
+		double firePower = Math.min(500 / e.getDistance(), 3);
+		double bulletSpeed = 20 - firePower * 3;
+		long time = (long)(e.getDistance() / bulletSpeed);
+
+
 		setFire(Math.min(400 / e.getDistance(), 3));
 
 	}
@@ -61,8 +70,7 @@ public class Bro extends AdvancedRobot
 	 * onHitByBullet: What to do when you're hit by a bullet
 	 */
 	public void onHitByBullet(HitByBulletEvent e) {
-		// Replace the next line with any behavior you would like
-		back(10);
+		turnLeft(90 - e.getBearing());
 	}
 
 
@@ -77,5 +85,36 @@ public class Bro extends AdvancedRobot
 		while (angle >  180) angle -= 360;
 		while (angle < -180) angle += 360;
 		return angle;
+	}
+
+	double absoluteBearing(double x1, double y1, double x2, double y2) {
+		double xo = x2-x1;
+		double yo = y2-y1;
+		double hyp = Point2D.distance(x1, y1, x2, y2);
+		double arcSin = Math.toDegrees(Math.asin(xo / hyp));
+		double bearing = 0;
+
+		if (xo > 0 && yo > 0) { // both pos: lower-Left
+			bearing = arcSin;
+		} else if (xo < 0 && yo > 0) { // x neg, y pos: lower-right
+			bearing = 360 + arcSin; // arcsin is negative here, actuall 360 - ang
+		} else if (xo > 0 && yo < 0) { // x pos, y neg: upper-left
+			bearing = 180 - arcSin;
+		} else if (xo < 0 && yo < 0) { // both neg: upper-right
+			bearing = 180 - arcSin; // arcsin is negative here, actually 180 + ang
+		}
+
+		return bearing;
+	}
+
+	public void doMove() {
+
+		// always square off against our enemy
+
+		// strafe by changing direction every 20 ticks
+		if (getTime() % 20 == 0) {
+			moveDirection *= -1;
+			setAhead(150 * moveDirection);
+		}
 	}
 }
