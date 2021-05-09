@@ -15,27 +15,19 @@ public class Bro extends AdvancedRobot {
     private AdvancedEnemyBot enemy = new AdvancedEnemyBot();
 
     public void run() {
-        meleeMode = (getOthers() > 1);
+       // meleeMode = (getOthers() > 1);
 
         // setColors(Color.red,Color.blue,Color.green); // body,gun,radar
         while (true) {
-            if (meleeMode) {
-                // simple wall follow
-                setAhead(getBattleFieldWidth());
-                execute();
-            } else {
+
                 doMove();
                 if (getRadarTurnRemaining() == 0.0) setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
                 execute();
-            }
         }
 
     }
 
     public void onScannedRobot(ScannedRobotEvent e) {
-        if(meleeMode){
-            return;
-        }
         if (enemy.none() || e.getDistance() < enemy.getDistance() - 70 ||
                 e.getName().equals(enemy.getName())) {
 
@@ -61,12 +53,17 @@ public class Bro extends AdvancedRobot {
         long time = (long) (e.getDistance() / bulletSpeed);
 
         // if distance > threshold
-        if(e.getDistance() > THRESHOLD){
+        if (meleeMode){
+            setTurnRight(e.getBearing());
+            setBack(30);
+        }
+        else if(e.getDistance() > THRESHOLD){
             setTurnRight(e.getBearing());
             setAhead(30);
         }
 
-        setFire(Math.min(400 / e.getDistance(), 3));
+        //setFire(Math.min(400 / e.getDistance(), 3));
+        doGun();
     }
 
     @Override
@@ -77,14 +74,10 @@ public class Bro extends AdvancedRobot {
     @Override
     public void onHitWall(HitWallEvent e) {
         // Replace the next line with any behavior you would like
-        if (meleeMode) {
-            setTurnLeftRadians(Math.cos(e.getBearingRadians()));
-            execute();
-        } else {
             double bearing = e.getBearing(); //get the bearing of the wall
             turnRight(-bearing); //This isn't accurate but release your robot.
             ahead(100); //The robot goes away from the wall.
-        }
+
     }
 
     double normalizeBearing(double angle) {
@@ -104,7 +97,7 @@ public class Bro extends AdvancedRobot {
 
     @Override
     public void onRobotDeath(RobotDeathEvent e) {
-        meleeMode = (getOthers() > 1);
+      //  meleeMode = (getOthers() > 1);
 
         // see if the robot we were tracking died
         if (e.getName().equals(enemy.getName())) {
@@ -121,4 +114,54 @@ public class Bro extends AdvancedRobot {
                         - getHeadingRadians()));
         setAhead(Math.hypot(x, y) * Math.cos(a));
     }
+
+    void doGun() {
+
+        // don't shoot if I've got no enemy
+        if (enemy.none())
+            return;
+
+        // calculate firepower based on distance
+        double firePower = Math.min(500 / enemy.getDistance(), 3);
+        // calculate speed of bullet
+        double bulletSpeed = 20 - firePower * 3;
+        // distance = rate * time, solved for time
+        long time = (long)(enemy.getDistance() / bulletSpeed);
+
+        // calculate gun turn to predicted x,y location
+        double futureX = enemy.getFutureX(time);
+        double futureY = enemy.getFutureY(time);
+        double absDeg = absoluteBearing(getX(), getY(), futureX, futureY);
+        // non-predictive firing can be done like this:
+        //double absDeg = absoluteBearing(getX(), getY(), enemy.getX(), enemy.getY());
+
+        // turn the gun to the predicted x,y location
+        setTurnGunRight(normalizeBearing(absDeg - getGunHeading()));
+
+        // if the gun is cool and we're pointed in the right direction, shoot!
+        if (getGunHeat() == 0 && Math.abs(getGunTurnRemaining()) < 10) {
+            setFire(firePower);
+        }
+    }
+
+    double absoluteBearing(double x1, double y1, double x2, double y2) {
+        double xo = x2-x1;
+        double yo = y2-y1;
+        double hyp = Point2D.distance(x1, y1, x2, y2);
+        double arcSin = Math.toDegrees(Math.asin(xo / hyp));
+        double bearing = 0;
+
+        if (xo > 0 && yo > 0) { // both pos: lower-Left
+            bearing = arcSin;
+        } else if (xo < 0 && yo > 0) { // x neg, y pos: lower-right
+            bearing = 360 + arcSin; // arcsin is negative here, actually 360 - ang
+        } else if (xo > 0 && yo < 0) { // x pos, y neg: upper-left
+            bearing = 180 - arcSin;
+        } else if (xo < 0 && yo < 0) { // both neg: upper-right
+            bearing = 180 - arcSin; // arcsin is negative here, actually 180 + ang
+        }
+
+        return bearing;
+    }
+
 }
