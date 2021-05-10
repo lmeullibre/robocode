@@ -6,7 +6,7 @@ import robocode.util.Utils;
 
 import java.awt.geom.Point2D;
 
-//import java.awt.Color;
+import java.awt.Color;
 
 public class Bro extends AdvancedRobot {
     public static final int THRESHOLD = 200;
@@ -14,13 +14,49 @@ public class Bro extends AdvancedRobot {
     private boolean meleeMode = false;
     private AdvancedEnemyBot enemy = new AdvancedEnemyBot();
 
+    private int w;
+
+    public void doSquare(){
+        int minH = 30;
+        int maxH = (int)getBattleFieldHeight()-30;
+        int minW = 30;
+        int maxW = (int)getBattleFieldWidth()-30;
+        out.println(w);
+        out.println(Math.abs(getDistanceRemaining()));
+        switch(w){
+            case 1:
+                goTo(minW, minH);
+                break;
+            case 2:
+                goTo(maxW, minH);
+                break;
+            case 3:
+                goTo(maxW, maxH);
+                break;
+            case 4:
+                goTo(minW, maxH);
+                break;
+        }
+        if(Math.abs(getDistanceRemaining())<10){
+            w = (w+1) %5;
+        }
+    }
+
     public void run() {
         meleeMode = (getOthers() > 1);
 
-        // setColors(Color.red,Color.blue,Color.green); // body,gun,radar
+        setColors(Color.pink,Color.black,Color.black); // body,gun,radar
+        w=1;
+
         while (true) {
+            //setAdjustRadarForGunTurn(true);
+            setAdjustGunForRobotTurn(true);
             if(meleeMode){
-                setAhead(getBattleFieldWidth());
+                if(getTime() % 10 == 0) {
+                    setTurnRadarRight(360);
+                }
+                setAhead(getBattleFieldHeight());
+
             }else{
                 doMove();
             }
@@ -29,7 +65,6 @@ public class Bro extends AdvancedRobot {
         }
 
     }
-
     public void onScannedRobot(ScannedRobotEvent e) {
         if (enemy.none() || e.getDistance() < enemy.getDistance() - 70 ||
                 e.getName().equals(enemy.getName())) {
@@ -50,15 +85,13 @@ public class Bro extends AdvancedRobot {
         // normalize the turn to take the shortest path there
         setTurnGunRight(normalizeBearing(turn));
 
-        // calculate firepower based on distance
-        double firePower = Math.min(500 / e.getDistance(), 3);
-        double bulletSpeed = 20 - firePower * 3;
-        long time = (long) (e.getDistance() / bulletSpeed);
-
-        // if distance > threshold
+        // FOLLOW THE MF
         if(!meleeMode && e.getDistance() > THRESHOLD){
             setTurnRight(e.getBearing());
             setAhead(30);
+        }else if(!meleeMode && e.getDistance() < 150){
+            setTurnRight(e.getBearing());
+            setBack(30);
         }
 
         //setFire(Math.min(400 / e.getDistance(), 3));
@@ -71,10 +104,18 @@ public class Bro extends AdvancedRobot {
     }
 
     @Override
+    public void onHitRobot(HitRobotEvent event) {
+        double absDeg = absoluteBearing(getX(), getY(), enemy.getFutureX(0), enemy.getFutureY(0));
+        setTurnGunRight(normalizeBearing(absDeg - getGunHeading()));
+        setFire(Rules.MAX_BULLET_POWER);
+        setTurnLeft(90 - event.getBearing());
+        execute();
+    }
+
+    @Override
     public void onHitWall(HitWallEvent e) {
         if (meleeMode) {
             setTurnLeftRadians(Math.cos(e.getBearingRadians()));
-            execute();
         } else {
             double bearing = e.getBearing(); //get the bearing of the wall
             turnRight(-bearing); //This isn't accurate but release your robot.
@@ -89,11 +130,11 @@ public class Bro extends AdvancedRobot {
     }
 
     public void doMove() {
-        if(getTime() % 20 == 0) {
-            setTurnRight(enemy.getBearing()+90);
+        if(getTime() % 10 == 0) {
+            setTurnRight(Math.abs(enemy.getBearing())+90);
             // strafe by changing direction every 20 ticks
             moveDirection *= -1;
-            setAhead(150 * moveDirection);
+            setAhead(550 * moveDirection);
         }
     }
 
@@ -132,7 +173,7 @@ public class Bro extends AdvancedRobot {
 
         // if the gun is cool and we're pointed in the right direction, shoot!
         if (getGunHeat() == 0 && Math.abs(getGunTurnRemaining()) < 10) {
-            setFire(firePower);
+            setFire((enemy.getDistance()<THRESHOLD)?Rules.MAX_BULLET_POWER : firePower);
         }
     }
 
@@ -154,6 +195,15 @@ public class Bro extends AdvancedRobot {
         }
 
         return bearing;
+    }
+
+    private void goTo(int x, int y) {
+        double a;
+
+        setTurnRightRadians(Math.tan(
+                a = Math.atan2(x -= (int) getX(), y -= (int) getY())
+                        - getHeadingRadians()));
+        setAhead(Math.hypot(x, y) * Math.cos(a));
     }
 
 }

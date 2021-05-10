@@ -79,7 +79,6 @@ public class EnemyBot extends Robot {
 
 
     public boolean none() {
-        System.out.printf("None tracked!\n");
         return "".equals(name);
     }
 
