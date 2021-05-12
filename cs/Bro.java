@@ -1,4 +1,4 @@
-package team.los.crudos;
+package cs;
 
 import robocode.*;
 import robocode.util.Utils;
@@ -7,7 +7,7 @@ import java.awt.geom.Point2D;
 
 import java.awt.Color;
 
-public class ElverGalarga extends AdvancedRobot {
+public class Bro extends AdvancedRobot {
     public static final int DIST_MINIMA = 200;
     private byte dirMovimiento = 1;
     private boolean multiplesEnemigos = false;
