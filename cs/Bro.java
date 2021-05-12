@@ -1,4 +1,4 @@
-package cs;
+package team.los.crudos;
 
 import robocode.*;
 import robocode.util.Utils;
@@ -7,24 +7,22 @@ import java.awt.geom.Point2D;
 
 import java.awt.Color;
 
-public class Bro extends AdvancedRobot {
-    public static final int THRESHOLD = 200;
-    private byte moveDirection = 1;
-    private boolean meleeMode = false;
-    private final Enemy enemy = new Enemy();
+public class ElverGalarga extends AdvancedRobot {
+    public static final int DIST_MINIMA = 200;
+    private byte dirMovimiento = 1;
+    private boolean multiplesEnemigos = false;
+    private final Enemy enemigo = new Enemy();
 
-    @Override
     public void run() {
-        setColors(Color.pink,Color.black,Color.black); // body,gun,radar
+        setColors(Color.pink,Color.black,Color.black);
 
-        meleeMode = (getOthers() > 1);
+        multiplesEnemigos = (getOthers() > 1);
 
         while (true) {
-            // strafe
             if(getTime() % 20 == 0) {
-                setTurnRight(enemy.getBearing()+90);
-                moveDirection *= -1;
-                setAhead(150 * moveDirection);
+                setTurnRight(enemigo.getBearing()+90);
+                dirMovimiento *= -1;
+                setAhead(150 * dirMovimiento);
             }
             if (getRadarTurnRemaining() == 0.0) setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
             execute();
@@ -32,11 +30,10 @@ public class Bro extends AdvancedRobot {
 
     }
 
-    @Override
     public void onScannedRobot(ScannedRobotEvent e) {
-        if (enemy.isEmpty() || e.getDistance() < enemy.getDistance() - 70 ||
-                e.getName().equals(enemy.getName())) {
-            enemy.updateEnemyRef(e, this);
+        if (enemigo.isEmpty() || e.getDistance() < enemigo.getDistance() - 70 ||
+                e.getName().equals(enemigo.getName())) {
+            enemigo.updateEnemyRef(e, this);
         }
         double turnoRadar = Utils.normalRelativeAngle((getHeadingRadians() + e.getBearingRadians()) - getRadarHeadingRadians());
         double turnoExtra = Math.min(Math.atan(36.0 / e.getDistance()), Rules.RADAR_TURN_RATE_RADIANS);
@@ -48,23 +45,22 @@ public class Bro extends AdvancedRobot {
         }
         setTurnRadarRightRadians(turnoRadar);
         setTurnGunRight(Utils.normalRelativeAngleDegrees(getHeading() - getGunHeading() + e.getBearing()));
-        if(!meleeMode && e.getDistance() > THRESHOLD){
+        if(!multiplesEnemigos && e.getDistance() > DIST_MINIMA){
             setTurnRight(e.getBearing());
             setAhead(30);
         }
-        if (enemy.isEmpty()) return;
-        double potencia = Math.min(500 / enemy.getDistance(), 3);
-        long temps = (long)(enemy.getDistance() / (20 - potencia * 3));
-        double theta = calcAnguloAbsoluto(getX(), getY(), enemy.getXAfter(temps), enemy.getYAfter(temps));
+        if (enemigo.isEmpty()) return;
+        double potencia = Math.min(500 / enemigo.getDistance(), 3);
+        long temps = (long)(enemigo.getDistance() / (20 - potencia * 3));
+        double theta = calcAnguloAbsoluto(getX(), getY(), enemigo.getXAfter(temps), enemigo.getYAfter(temps));
         setTurnGunRight(Utils.normalRelativeAngleDegrees(theta - getGunHeading()));
         if (getGunHeat() == 0 && Math.abs(getGunTurnRemaining()) < 10) {
             setFire(potencia);
         }
     }
 
-    @Override
     public void onHitByBullet(HitByBulletEvent e) {
-        if(meleeMode) {
+        if(multiplesEnemigos) {
             setTurnGunRight(Utils.normalRelativeAngleDegrees(e.getBearing()));
             setTurnLeft(90 - e.getBearing());
             setAhead(200);
@@ -72,11 +68,9 @@ public class Bro extends AdvancedRobot {
         }
     }
 
-    @Override
     public void onHitRobot(HitRobotEvent event) {
-        if(meleeMode) {
-            // point to robot we just hit, fire at max power, then move away
-            double absDeg = calcAnguloAbsoluto(getX(), getY(), enemy.getXAfter(0), enemy.getYAfter(0));
+        if(multiplesEnemigos) {
+            double absDeg = calcAnguloAbsoluto(getX(), getY(), enemigo.getXAfter(0), enemigo.getYAfter(0));
             setTurnGunRight(Utils.normalRelativeAngleDegrees(absDeg - getGunHeading()));
             setFire(Rules.MAX_BULLET_POWER);
             setTurnLeft(90 - event.getBearing());
@@ -85,9 +79,8 @@ public class Bro extends AdvancedRobot {
         }
     }
 
-    @Override
     public void onHitWall(HitWallEvent e) {
-        if (meleeMode) {
+        if (multiplesEnemigos) {
             setTurnLeftRadians(Math.cos(e.getBearingRadians()));
         } else {
             turnRight(-e.getBearing());
@@ -95,32 +88,29 @@ public class Bro extends AdvancedRobot {
         }
     }
 
-    @Override
     public void onRobotDeath(RobotDeathEvent e) {
-        meleeMode = (getOthers() > 1);
-        if (e.getName().equals(enemy.getName())) {
-            enemy.resetEnemyRef();
+        multiplesEnemigos = (getOthers() > 1);
+        if (e.getName().equals(enemigo.getName())) {
+            enemigo.resetEnemyRef();
         }
     }
 
     double calcAnguloAbsoluto(double x1, double y1, double x2, double y2) {
         double xo = x2-x1;
         double yo = y2-y1;
-        double hyp = Point2D.distance(x1, y1, x2, y2);
-        double arcSin = Math.toDegrees(Math.asin(xo / hyp));
-        double bearing = 0;
+        double hipotenusa = Point2D.distance(x1, y1, x2, y2);
+        double arcoseno = Math.toDegrees(Math.asin(xo / hipotenusa));
 
         if (xo > 0 && yo > 0) {
-            bearing = arcSin;
+            return arcoseno;
         } else if (xo < 0 && yo > 0) {
-            bearing = 360 + arcSin;
+            return 360 + arcoseno;
         } else if (xo > 0 && yo < 0) {
-            bearing = 180 - arcSin;
+            return 180 - arcoseno;
         } else if (xo < 0 && yo < 0) {
-            bearing = 180 - arcSin;
+            return 180 - arcoseno;
         }
-
-        return bearing;
+        return 0;
     }
 
     public static class Enemy {
