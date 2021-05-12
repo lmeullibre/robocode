@@ -34,51 +34,31 @@ public class Bro extends AdvancedRobot {
 
     @Override
     public void onScannedRobot(ScannedRobotEvent e) {
-        // set to track this new enemy
         if (enemy.isEmpty() || e.getDistance() < enemy.getDistance() - 70 ||
                 e.getName().equals(enemy.getName())) {
             enemy.updateEnemyRef(e, this);
         }
-
-        double angleToEnemy = getHeadingRadians() + e.getBearingRadians();
-        double radarTurn = Utils.normalRelativeAngle(angleToEnemy - getRadarHeadingRadians());
-        double extraTurn = Math.min(Math.atan(36.0 / e.getDistance()), Rules.RADAR_TURN_RATE_RADIANS);
-        if (radarTurn < 0)
-            radarTurn -= extraTurn;
-        else
-            radarTurn += extraTurn;
-        setTurnRadarRightRadians(radarTurn);
-        double turn = getHeading() - getGunHeading() + e.getBearing();
-        // normalize the turn to take the shortest path there
-        setTurnGunRight(Utils.normalRelativeAngleDegrees(turn));
-
-        // FOLLOW THE MF
+        double turnoRadar = Utils.normalRelativeAngle((getHeadingRadians() + e.getBearingRadians()) - getRadarHeadingRadians());
+        double turnoExtra = Math.min(Math.atan(36.0 / e.getDistance()), Rules.RADAR_TURN_RATE_RADIANS);
+        if (turnoRadar < 0) {
+            turnoRadar -= turnoExtra;
+        }
+        else {
+            turnoRadar += turnoExtra;
+        }
+        setTurnRadarRightRadians(turnoRadar);
+        setTurnGunRight(Utils.normalRelativeAngleDegrees(getHeading() - getGunHeading() + e.getBearing()));
         if(!meleeMode && e.getDistance() > THRESHOLD){
             setTurnRight(e.getBearing());
             setAhead(30);
         }
-
-        // don't shoot if I've got no enemy
         if (enemy.isEmpty()) return;
-
-        // calculate firepower based on distance
-        double firePower = Math.min(500 / enemy.getDistance(), 3);
-        // calculate speed of bullet
-        double bulletSpeed = 20 - firePower * 3;
-        // distance = rate * time, solved for time
-        long time = (long)(enemy.getDistance() / bulletSpeed);
-
-        // calculate gun turn to predicted x,y location
-        double futureX = enemy.getXAfter(time);
-        double futureY = enemy.getYAfter(time);
-        double absDeg = absoluteBearing(getX(), getY(), futureX, futureY);
-
-        // turn the gun to the predicted x,y location
-        setTurnGunRight(Utils.normalRelativeAngleDegrees(absDeg - getGunHeading()));
-
-        // if the gun is cool and we're pointed in the right direction, shoot!
+        double potencia = Math.min(500 / enemy.getDistance(), 3);
+        long temps = (long)(enemy.getDistance() / (20 - potencia * 3));
+        double theta = calcAnguloAbsoluto(getX(), getY(), enemy.getXAfter(temps), enemy.getYAfter(temps));
+        setTurnGunRight(Utils.normalRelativeAngleDegrees(theta - getGunHeading()));
         if (getGunHeat() == 0 && Math.abs(getGunTurnRemaining()) < 10) {
-            setFire(firePower);
+            setFire(potencia);
         }
     }
 
@@ -96,7 +76,7 @@ public class Bro extends AdvancedRobot {
     public void onHitRobot(HitRobotEvent event) {
         if(meleeMode) {
             // point to robot we just hit, fire at max power, then move away
-            double absDeg = absoluteBearing(getX(), getY(), enemy.getXAfter(0), enemy.getYAfter(0));
+            double absDeg = calcAnguloAbsoluto(getX(), getY(), enemy.getXAfter(0), enemy.getYAfter(0));
             setTurnGunRight(Utils.normalRelativeAngleDegrees(absDeg - getGunHeading()));
             setFire(Rules.MAX_BULLET_POWER);
             setTurnLeft(90 - event.getBearing());
@@ -123,7 +103,7 @@ public class Bro extends AdvancedRobot {
         }
     }
 
-    double absoluteBearing(double x1, double y1, double x2, double y2) {
+    double calcAnguloAbsoluto(double x1, double y1, double x2, double y2) {
         double xo = x2-x1;
         double yo = y2-y1;
         double hyp = Point2D.distance(x1, y1, x2, y2);
