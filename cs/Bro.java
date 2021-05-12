@@ -4,6 +4,7 @@ import mypackage.AdvancedEnemyBot;
 import robocode.*;
 import robocode.util.Utils;
 
+import java.awt.*;
 import java.awt.geom.Point2D;
 
 //import java.awt.Color;
@@ -15,14 +16,14 @@ public class Bro extends AdvancedRobot {
     private AdvancedEnemyBot enemy = new AdvancedEnemyBot();
 
     public void run() {
-       // meleeMode = (getOthers() > 1);
+        meleeMode = (getOthers() > 1);
 
-        // setColors(Color.red,Color.blue,Color.green); // body,gun,radar
+        setColors(Color.pink,Color.black,Color.black); // body,gun,radar
         while (true) {
 
-                doMove();
-                if (getRadarTurnRemaining() == 0.0) setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
-                execute();
+            doMove();
+            if (getRadarTurnRemaining() == 0.0) setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
+            execute();
         }
 
     }
@@ -52,12 +53,8 @@ public class Bro extends AdvancedRobot {
         double bulletSpeed = 20 - firePower * 3;
         long time = (long) (e.getDistance() / bulletSpeed);
 
-        // if distance > threshold
-        if (meleeMode){
-            setTurnRight(e.getBearing());
-            setBack(30);
-        }
-        else if(e.getDistance() > THRESHOLD){
+        // FOLLOW THE MF
+        if(!meleeMode && e.getDistance() > THRESHOLD){
             setTurnRight(e.getBearing());
             setAhead(30);
         }
@@ -68,16 +65,35 @@ public class Bro extends AdvancedRobot {
 
     @Override
     public void onHitByBullet(HitByBulletEvent e) {
-        //turnLeft(90 - e.getBearing());
+        if(meleeMode) {
+            setTurnGunRight(normalizeBearing(e.getBearing()));
+            setTurnLeft(90 - e.getBearing());
+            setAhead(200);
+            execute();
+        }
+    }
+
+    @Override
+    public void onHitRobot(HitRobotEvent event) {
+        if(meleeMode) {
+            double absDeg = absoluteBearing(getX(), getY(), enemy.getFutureX(0), enemy.getFutureY(0));
+            setTurnGunRight(normalizeBearing(absDeg - getGunHeading()));
+            setFire(Rules.MAX_BULLET_POWER);
+            setTurnLeft(90 - event.getBearing());
+            setAhead(100);
+            execute();
+        }
     }
 
     @Override
     public void onHitWall(HitWallEvent e) {
-        // Replace the next line with any behavior you would like
+        if (meleeMode) {
+            setTurnLeftRadians(Math.cos(e.getBearingRadians()));
+        } else {
             double bearing = e.getBearing(); //get the bearing of the wall
             turnRight(-bearing); //This isn't accurate but release your robot.
             ahead(100); //The robot goes away from the wall.
-
+        }
     }
 
     double normalizeBearing(double angle) {
@@ -97,22 +113,12 @@ public class Bro extends AdvancedRobot {
 
     @Override
     public void onRobotDeath(RobotDeathEvent e) {
-      //  meleeMode = (getOthers() > 1);
+        meleeMode = (getOthers() > 1);
 
         // see if the robot we were tracking died
         if (e.getName().equals(enemy.getName())) {
             enemy.reset();
         }
-    }
-
-
-
-    private void goTo(int x, int y) {
-        double a;
-        setTurnRightRadians(Math.tan(
-                a = Math.atan2(x -= (int) getX(), y -= (int) getY())
-                        - getHeadingRadians()));
-        setAhead(Math.hypot(x, y) * Math.cos(a));
     }
 
     void doGun() {
